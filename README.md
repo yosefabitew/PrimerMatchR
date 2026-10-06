@@ -11,4 +11,4 @@ You can install the development version of PrimerMatchR directly from GitHub:
 install.packages("remotes")
 
 # Install PrimerMatchR
-remotes::install_github("your-username/PrimerMatchR")
+remotes::install_github("yosefabitew/PrimerMatchR")
