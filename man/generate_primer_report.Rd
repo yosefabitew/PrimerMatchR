@@ -22,5 +22,5 @@ Saves an HTML and PDF report to the current working directory.
 }
 \description{
 Reads a plasmid sequence and a list of primers, calculates binding sites,
-and exports a color-coded HTML and PDF report.
+verifies reverse complement logic, and exports a color-coded HTML and PDF report.
 }

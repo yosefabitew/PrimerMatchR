@@ -50,7 +50,7 @@ check_primers <- function(plasmid, primers_df) {
 #' Generate Primer Binding Report
 #'
 #' Reads a plasmid sequence and a list of primers, calculates binding sites,
-#' and exports a color-coded HTML and PDF report.
+#' verifies reverse complement logic, and exports a color-coded HTML and PDF report.
 #'
 #' @param plasmid_path Path to the plasmid text file (e.g., "plasmid.txt").
 #' @param primers_path Path to the primers Excel file (e.g., "primers.xlsx").
@@ -80,14 +80,38 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
   message("Matching primers...")
   match_results <- check_primers(plasmid_seq, primer_df)
 
-  # 3. Strictly map colors by UNIQUE PRIMER NAME
+  # 3. Sanity check: Verify reverse complement matches automatically
+  rev_matches <- match_results[grepl("- \\(Reverse Comp\\)", match_results$Strand), ]
+  if (nrow(rev_matches) > 0) {
+    message("Verifying biological reverse complement alignments...")
+    for (i in 1:nrow(rev_matches)) {
+      p_name <- rev_matches$Name[i]
+      p_seq_original <- rev_matches$Sequence[i]
+      pos_str <- rev_matches$Positions[i]
+
+      expected_rc <- as.character(Biostrings::reverseComplement(Biostrings::DNAString(p_seq_original)))
+      p_len <- nchar(p_seq_original)
+      pos_list <- as.numeric(strsplit(pos_str, ", ")[[1]])
+
+      for (start_pos in pos_list) {
+        actual_plasmid_seq <- as.character(Biostrings::subseq(plasmid_seq, start = start_pos, width = p_len))
+        if (actual_plasmid_seq == expected_rc) {
+          cat(sprintf("  [\u2713] Verified %s at position %d\n", p_name, start_pos))
+        } else {
+          warning(sprintf("  [X] Mismatch for %s at position %d!", p_name, start_pos))
+        }
+      }
+    }
+  }
+
+  # 4. Strictly map colors by UNIQUE PRIMER NAME
   human_palette <- c("#1f78b4", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a",
                      "#b15928", "#a6cee3", "#b2df8a", "#fb9a99", "#fdbf6f")
 
   matched_names <- unique(match_results$Name[match_results$Match_Count > 0])
   primer_color_map <- character(length(unique(match_results$Name)))
   names(primer_color_map) <- unique(match_results$Name)
-  primer_color_map[] <- "#ffffff" # Initialize all with white/neutral
+  primer_color_map[] <- "#ffffff"
 
   if(length(matched_names) > 0) {
     palette_assigned <- rep(human_palette, ceiling(length(matched_names) / length(human_palette)))[1:length(matched_names)]
@@ -101,7 +125,7 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
     }
   }
 
-  # 4. Create gt table
+  # 5. Create gt table
   message("Generating table...")
   gt_table <- match_results %>%
     dplyr::select(-Row_Color) %>%
@@ -122,7 +146,7 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
       )
     )
 
-  # 5. Build the color-coded & strand-coded plasmid sequence string
+  # 6. Build the color-coded & strand-coded plasmid sequence string
   message("Building sequence map...")
   base_colors <- rep("transparent", plasmid_len)
   base_strands <- rep("none", plasmid_len)
@@ -142,7 +166,6 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
     }
   }
 
-  # Helper for HTML span generation
   generate_span <- function(chunk, color, strand) {
     if (color == "transparent") {
       return(chunk)
@@ -176,7 +199,7 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
   html_seq_parts <- c(html_seq_parts, generate_span(current_chunk, current_color, current_strand))
   highlighted_sequence_html <- paste0(html_seq_parts, collapse = "")
 
-  # 6. Build HTML content
+  # 7. Build HTML content
   html_content <- htmltools::tagList(
     htmltools::tags$head(
       htmltools::tags$style(htmltools::HTML("
@@ -197,7 +220,7 @@ generate_primer_report <- function(plasmid_path, primers_path, output_name = "pr
     htmltools::tags$div(class = "sequence-box", htmltools::HTML(highlighted_sequence_html))
   )
 
-  # 7. Save Outputs
+  # 8. Save Outputs
   message("Saving reports...")
   out_html <- paste0(output_name, ".html")
   out_pdf <- paste0(output_name, ".pdf")
