@@ -16,3 +16,5 @@ Imports:
     htmltools,
     readxl,
     webshot2
+URL: https://github.com/yosefabitew/PrimerMatchR
+BugReports: https://github.com/yosefabitew/PrimerMatchR/issues
